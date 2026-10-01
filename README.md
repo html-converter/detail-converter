@@ -3,5 +3,5 @@
 일러스트(.ai)·포토샵(.psd)·피그마 PDF 상세페이지를 **글자는 HTML, 사진만 이미지**인 코드로 바꿔 주는 도구예요.
 카페24 / 카카오톡 선물하기용 코드를 만들어요.
 
-- 사용: https://hyeonee030.github.io/html-converter/
+- 사용: https://html-converter.github.io/detail-converter/
 - 올린 파일은 각자 컴퓨터(브라우저) 안에서만 처리되고, 어디에도 전송되지 않아요.
