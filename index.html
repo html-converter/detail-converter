@@ -98,6 +98,7 @@ button.mini{padding:6px 10px;font-size:12.5px}
   <p class="hint">상세페이지에 넣을 아트보드를 고르세요. 클릭하면 선택/해제돼요. 위에서부터 순서대로 이어 붙여요.</p>
   <div id="boards"></div>
   <div class="grid" style="margin-top:18px">
+    <label class="f">브랜드 <small>쇼핑몰 주소와 사진 이름표가 자동으로 정해져요</small><select id="optBrand"></select></label>
     <label class="f">상품명 <small>사진 설명(alt)에 들어가요</small><input id="optTitle" type="text"></label>
     <label class="f">사진 이름표 <small>사진 파일·폴더 이름. 상품마다 자동으로 다르게 만들어져요 (영어·숫자만)</small><input id="optPrefix" type="text" value="detail"></label>
     <label class="f">사진 해상도 <small>가로 픽셀. 클수록 선명하지만 무거워요</small>
@@ -129,10 +130,15 @@ button.mini{padding:6px 10px;font-size:12.5px}
             <button id="dlZip" class="sub mini" style="width:100%;margin-top:6px">ZIP으로 받기</button>
             <small id="saveHint">저장할 곳(예: 바탕화면)을 고르면 그 안에 <code class="pfx"></code><code>_상세페이지</code> 폴더가 생기고, 카페24에 올릴 사진 폴더와 코드가 같이 저장돼요.</small>
             <small id="saved" style="color:var(--ok)"></small></li>
-          <li><b>카페24에 사진 올리기</b>
+          <li><b id="upTitle">카페24에 사진 올리기</b>
+            <div id="upCafe24">
             <small>카페24 관리자 → 디자인 → <b>파일 업로더</b> → <code>detail</code> 폴더 안에 아래 이름으로 새 폴더를 만들고, 사진을 <b>전부</b> 끌어다 놓으세요.</small>
-            <div class="row" style="margin-top:6px;gap:6px"><code class="pfx big"></code><button class="sub mini" id="cpFolder">이름 복사</button></div>
             <small style="color:var(--warn)">상품 에디터의 사진 버튼으로 올리면 파일 이름이 바뀌어서 안 돼요.</small>
+            </div>
+            <div id="upOther" class="hide">
+            <small><b id="brandName2"></b>은(는) 카페24 쇼핑몰이 아니라서 사진 올리는 곳이 달라요. 사진을 손님이 볼 수 있는 곳(쇼핑몰 서버 등)에 아래 이름의 폴더로 올리고, 그 폴더 주소를 3번 "사진 폴더 주소"에 넣어 주세요.</small>
+            </div>
+            <div class="row" style="margin-top:6px;gap:6px"><code class="pfx big"></code><button class="sub mini" id="cpFolder">이름 복사</button></div>
             <small>다시 변환했다면 사진을 <b>전부 다시</b> 올리고 코드도 <b>새로 복사</b>해 주세요. "같은 이름의 파일이 있다"고 나오면 건너뛰어도 괜찮아요 (내용이 같은 사진이에요).</small></li>
           <li><b>사진 주소 확인</b>
             <label class="f" style="margin-top:6px">쇼핑몰 주소<input id="optMall" type="text" value="https://gulgang.com"></label>
@@ -711,9 +717,18 @@ function codeFor(mode, base = resolveBase()) {
 
 /* ---------------- 사진 주소 ---------------- */
 // 사진은 카페24 파일 업로더의 detail/<사진 이름표>/ 폴더에 올린다고 보고 주소를 미리 채운다
-function mallUrl() { return ($('#optMall').value.trim() || 'https://gulgang.com').replace(/\/+$/, '').replace(/^(?!https?:\/\/)/, 'https://'); }
+// 회사 브랜드 (key = 사진 이름표 앞 약자). 카페24 쇼핑몰은 파일 업로더 detail 폴더 주소를 자동으로 채운다.
+const BRANDS = [
+  { key: 'gg', name: '굴뚝강아지', mall: 'https://gulgang.com', cafe24: true },
+  { key: 'mm', name: '미뇽맨션', mall: 'https://mignon-mansion.com', cafe24: true },
+  { key: 'vs', name: '바쏠', mall: 'https://vasol.store', cafe24: false },
+  { key: 'hg', name: '휴그', mall: 'https://huug.kr', cafe24: true },
+  { key: 'fr', name: '퓌라', mall: 'https://feura.kr', cafe24: true }
+];
+function brand() { return BRANDS.find(b => b.key === $('#optBrand').value) || BRANDS[0]; }
+function mallUrl() { return ($('#optMall').value.trim() || brand().mall).replace(/\/+$/, '').replace(/^(?!https?:\/\/)/, 'https://'); }
 // 카페24 파일 업로더의 detail 폴더 = 쇼핑몰주소/detail/ (2026-10-01 실제 업로드로 확인)
-function suggestBase() { return `${mallUrl()}/detail/${state.prefix}/`; }
+function suggestBase() { return brand().cafe24 ? `${mallUrl()}/detail/${state.prefix}/` : ''; } // 카페24가 아니면 직접 입력
 function resolveBase() {
   let b = $('#optBase').value.trim();
   if (b.startsWith('/')) b = mallUrl() + b;          // /detail/... 처럼 짧게 쓴 주소는 쇼핑몰 주소를 붙인다
@@ -896,11 +911,10 @@ async function loadFile(file) {
 
   const name = file.name.replace(/\.[^.]+$/, '');
   $('#optTitle').value = name.replace(/\s*상세\s*페이지\s*$/, '').trim();
-  // 사진 이름표: 파일명 속 영어(없으면 gg) + 날짜·시간 → 상품끼리 겹치지 않는다
-  const ascii = name.replace(/[^a-zA-Z0-9_-]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase().slice(0, 30);
+  // 사진 이름표: 브랜드 약자 + 날짜·시간 → 상품끼리 겹치지 않는다 (예: gg-261001-1953)
   const d = new Date(), p2 = v => String(v).padStart(2, '0');
-  const stamp = `${String(d.getFullYear()).slice(2)}${p2(d.getMonth() + 1)}${p2(d.getDate())}-${p2(d.getHours())}${p2(d.getMinutes())}`;
-  $('#optPrefix').value = `${ascii || 'gg'}-${stamp}`;
+  state.stamp = `${String(d.getFullYear()).slice(2)}${p2(d.getMonth() + 1)}${p2(d.getDate())}-${p2(d.getHours())}${p2(d.getMinutes())}`;
+  $('#optPrefix').value = `${brand().key}-${state.stamp}`;
 
   // 아트보드: 가장 많이 쓰인 가로폭과 같은 것만 기본 선택
   const bs = state.src.boards;
@@ -931,9 +945,24 @@ drop.ondragover = e => { e.preventDefault(); drop.classList.add('over'); };
 drop.ondragleave = () => drop.classList.remove('over');
 drop.ondrop = e => { e.preventDefault(); drop.classList.remove('over'); loadFile(e.dataTransfer.files[0]); };
 $('#run').onclick = convert;
-try { const m = localStorage.getItem('gdp.mall'); if (m) $('#optMall').value = m; } catch (e) { }
+// 브랜드 고르기 (마지막에 고른 브랜드를 기억)
+$('#optBrand').innerHTML = BRANDS.map(b => `<option value="${b.key}">${esc(b.name)}${b.cafe24 ? '' : ' (카페24 아님)'}</option>`).join('');
+try { const k = localStorage.getItem('gdp.brand'); if (BRANDS.some(b => b.key === k)) $('#optBrand').value = k; } catch (e) { }
+function applyBrand() {
+  const b = brand();
+  $('#optMall').value = b.mall;
+  $('#upTitle').textContent = b.cafe24 ? '카페24에 사진 올리기' : '사진 올리기';
+  $('#upCafe24').classList.toggle('hide', !b.cafe24);
+  $('#upOther').classList.toggle('hide', b.cafe24);
+  $('#brandName2').textContent = b.name;
+  // 자동으로 만든 이름표면 앞 약자만 바꾼다
+  const p = $('#optPrefix');
+  if (state.stamp && /^[a-z]{2}-\d{6}-\d{4}$/.test(p.value)) p.value = `${b.key}-${state.stamp}`;
+  if (state.prefix && !state.baseEdited) { $('#optBase').value = suggestBase(); showChk('', ''); }
+}
+$('#optBrand').onchange = () => { try { localStorage.setItem('gdp.brand', brand().key); } catch (e) { } applyBrand(); };
+applyBrand();
 $('#optMall').oninput = () => {
-  try { localStorage.setItem('gdp.mall', $('#optMall').value.trim()); } catch (e) { }
   if (!state.baseEdited && state.prefix) $('#optBase').value = suggestBase();
   showChk('', '');
 };
